@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dodgeball vs the Grandmaster</title>
+<style>
+:root{--bg:#f2f3f7;--fg:#1b1f2a;--mut:#5d6578;--btn:#dfe3ee;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0e1116;--fg:#e8eaf0;--mut:#8b93a5;--btn:#222838;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e1116;--fg:#e8eaf0;--mut:#8b93a5;--btn:#222838;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,system-ui,sans-serif;text-align:center}
+h1{font-size:20px;margin:14px 0 4px}
+p{margin:4px 12px;color:var(--mut);font-size:13px}
+canvas{display:block;margin:10px auto;max-width:100%;height:auto;border-radius:10px;background:#10141c;cursor:crosshair}
+button{font:inherit;font-size:14px;padding:8px 14px;margin:4px;border:0;border-radius:8px;background:var(--btn);color:var(--fg);cursor:pointer}
+button:disabled{opacity:.4;cursor:default}
+</style></head><body>
+<h1>Dodgeball vs the Grandmaster</h1>
+<p>Move: WASD / arrows &nbsp;•&nbsp; Aim: mouse &nbsp;•&nbsp; Throw: click or Space</p>
+<canvas id="c" width="1000" height="1000"></canvas>
+<div><label for="map" style="font-size:14px">Map: </label><select id="map" style="font:inherit;font-size:14px;padding:6px"><option value="rings">Two circles</option><option value="arena">One big circle</option><option value="split">Split circle</option></select></div>
+<div><button id="add">+ Add CPU teammate</button><button id="reset">Restart</button></div>
+<div><label for="rate" style="font-size:14px">Grandmaster attack rate: <b id="rv">7</b> throws/sec</label><br><input type="range" id="rate" min="1" max="40" step="1" value="7" style="width:min(320px,80%)"></div>
+<p id="rec"></p>
+<script>
+// ---- Settings (everyone throws with the SAME power) ----
+const W=1000,H=1000,CX=500,CY=500,RO=485,RI=215,R=14,GM_R=10,BR=7,BALL_SPEED=380,COOLDOWN=0.45,MAXHP=3,GM_MAXHP=10,SNIPE_SPEED=380,MAX_BOUNCES=0,TIRE_TIME=75,PULSE_CD=6,PULSE_R=170,MAX_MATES=25;
+const c=document.getElementById('c'),g=c.getContext('2d');
+let mapKind='rings',pulses=[],pulseCd=3,gmRate=7,units,balls,mates=0,state='play',wins=0,losses=0,mouse={x:600,y:230},keys={};
+
+function mk(team,x,y,kind,speed){return{team,x,y,vx:0,vy:0,kind,speed,hp:MAXHP,cd:1+Math.random(),homeY:y,homeX:x,flash:0,alive:true}}
+function reset(){
+  units=mapKind=='rings'?[mk(0,CX-(RI+RO)/2,CY,'player',210),mk(1,CX,CY,'gm',470)]:[mk(0,CX-300,CY,'player',210),mk(1,CX+300,CY,'gm',470)];
+  for(let i=0;i<mates;i++)addUnit(false);
+  balls=[];pulses=[];pulseCd=3;state='play';
+}
+function addUnit(cap=true){
+  const n=units.filter(u=>u.team==0&&u.kind=='mate').length;
+  if(n>=MAX_MATES)return;
+  const a=Math.PI+n*2.4,rm=(RI+RO)/2+(n%2?30:-30),y=CY+rm*Math.sin(a);
+  units.push(mapKind=='rings'?mk(0,CX+rm*Math.cos(a),y,'mate',210):mk(0,CX-90-(n%3)*55,CY+((n*97)%520)-260,'mate',210));
+  if(cap)mates=n+1;
+}
+function team(t){return units.filter(u=>u.team==t&&u.alive)}
+
+// ---- Throwing: aim where the target WILL be ----
+function throwAt(u,tx,ty,tvx,tvy,spread=0){
+  const SPD=u.kind=='gm'?SNIPE_SPEED:BALL_SPEED; // the Grandmaster's ball is much faster than everyone else's
+  let px=tx,py=ty;
+  for(let i=0;i<3;i++){const t=Math.min(0.45,Math.hypot(px-u.x,py-u.y)/SPD);px=tx+tvx*t;py=ty+tvy*t}
+  py+=spread;
+  const a=Math.atan2(py-u.y,px-u.x);
+  balls.push({x:u.x,y:u.y,vx:Math.cos(a)*SPD,vy:Math.sin(a)*SPD,team:u.team,fast:false});
+  u.cd=u.kind=='gm'?1/gmRate:COOLDOWN*(u.kind=='mate'?1+4*exh(u):1); // exhausted teammates throw much less often (5x the wait at 0 energy)
+}
+
+// Where each unit may stand: the Grandmaster stays inside the inner circle, everyone else in the outer ring.
+function limits(u){if(mapKind!='rings')return [0,RO-R];return u.kind=='gm'?[0,RI-GM_R-4]:[RI+R+4,RO-R]}
+function clampPos(u,x,y){
+  const [lo,hi]=limits(u);const dx=x-CX,dy=y-CY,d=Math.hypot(dx,dy)||0.001;
+  const nd=Math.min(hi,Math.max(lo,d));
+  let px=CX+dx/d*nd,py=CY+dy/d*nd;
+  if(mapKind=='split'){ // each team keeps to its own half
+    px=u.team==0?Math.min(px,CX-R):Math.max(px,CX+R);
+    const my=Math.sqrt(Math.max(0,hi*hi-(px-CX)*(px-CX)));
+    py=CY+Math.min(my,Math.max(-my,py-CY));
+  }
+  return [px,py];
+}
+function wallGap(u,x,y){const [lo,hi]=limits(u),d=Math.hypot(x-CX,y-CY);const wall=hi-d,g0=mapKind=='rings'&&u.kind!='gm'?Math.min(d-lo,wall):wall;return mapKind=='split'?Math.min(g0,u.team==0?CX-R-x:x-CX-R):g0}
+
+// Tiredness: every CPU teammate slowly tires over TIRE_TIME seconds. The effects get much worse near 0 energy (exh = tiredness squared):
+// at 0 energy a teammate moves 75% slower, throws 5x less often, aims badly and reacts slowly.
+function exh(u){const t=u.tire||0;return t*t}
+function eff(u){return u.speed*(u.kind=='mate'?1-0.75*exh(u):1)}
+function rad(u){return u.kind=='gm'?GM_R:R} // the Grandmaster is smaller than everyone else, so he is harder to hit
+function energyText(){const ms=units.filter(u=>u.kind=='mate');if(!ms.length)return '';return '  \u2022  energy '+Math.round(100*(1-ms.reduce((a,u)=>a+(u.tire||0),0)/ms.length))+'%'}
+
+// ---- The dodging brain ----
+// Try 9 moves (stand still + 8 directions). For each, imagine the next 1.2 seconds
+// and see how close every incoming ball would get. Pick the move with the biggest safety gap.
+const DIRS=[[0,0]];for(let i=0;i<16;i++){const a=i*Math.PI/8;DIRS.push([Math.cos(a),Math.sin(a)])}
+function bestMove(u){
+  const enemy=balls.filter(b=>b.team!=u.team);
+  let best=null,bs=-1e9;
+  for(const d of DIRS){
+    let minClear=999,ex=u.x,ey=u.y;
+    for(let t=0;t<=1.2;t+=0.04){
+      const [px,py]=clampPos(u,u.x+d[0]*eff(u)*t,u.y+d[1]*eff(u)*t);
+      ex=px;ey=py;
+      for(const b of enemy){
+        const ddx=b.x+b.vx*t-px,ddy=b.y+b.vy*t-py,cl=Math.sqrt(ddx*ddx+ddy*ddy)-(R+BR);
+        if(cl<minClear)minClear=cl;
+      }
+    }
+    const dw=wallGap(u,ex,ey); // distance to nearest wall
+    const wallPenalty=dw<100?(100-dw)*(u.kind=='gm'?1.2:1.0):0; // staying near a wall costs points, so it leaves walls
+    const aggr=u.kind=='gm'; // the Grandmaster takes more risks and cares much more about closing in
+    const s=(minClear>6?1000:0)+Math.min(minClear,aggr?14:30)*10-wallPenalty*(aggr?1:0.5)-(aggr?0.3:0.04)*Math.hypot(ex-u.homeX,ey-u.homeY); // any safe move beats any risky move; then walls, then chasing
+    if(s>bs){bs=s;best=d}
+  }
+  return best;
+}
+
+// The Grandmaster's trick: if a ball is about to hit him, throw one at it to knock it away
+function swat(u){
+  let best=null,bt=9;
+  for(const b of balls){
+    if(b.team==u.team)continue;
+    const rx=u.x-b.x,ry=u.y-b.y,v2=b.vx*b.vx+b.vy*b.vy;
+    const tc=(rx*b.vx+ry*b.vy)/v2;
+    if(tc<0.1||tc>1.2)continue;
+    if(Math.hypot(b.x+b.vx*tc-u.x,b.y+b.vy*tc-u.y)>rad(u)+BR+12)continue;
+    if(tc<bt){bt=tc;best=b}
+  }
+  if(!best)return false;
+  for(let t=0.05;t<=1.2;t+=0.02){
+    const px=best.x+best.vx*t,py=best.y+best.vy*t;
+    if(Math.hypot(px-u.x,py-u.y)<=BALL_SPEED*t){throwAt(u,px,py,0,0);return true}
+  }
+  return false;
+}
+
+// Reflect Pulse: when a ball is about to hit him, the Grandmaster blasts every nearby ball away
+// and turns them into HIS balls. Recharges in 6 seconds.
+function danger(u,tmax){
+  for(const b of balls){
+    if(b.team==u.team)continue;
+    const v2=b.vx*b.vx+b.vy*b.vy,tc=((u.x-b.x)*b.vx+(u.y-b.y)*b.vy)/v2;
+    if(tc<0||tc>tmax)continue;
+    if(Math.hypot(b.x+b.vx*tc-u.x,b.y+b.vy*tc-u.y)<R+BR+4)return true;
+  }
+  return false;
+}
+function pulse(u){
+  pulseCd=PULSE_CD;pulses.push({x:u.x,y:u.y,t:0});
+  for(const b of balls){
+    const dx=b.x-u.x,dy=b.y-u.y,d=Math.hypot(dx,dy)||1;
+    if(b.team!=u.team&&d<PULSE_R){b.team=u.team;b.vx=dx/d*BALL_SPEED;b.vy=dy/d*BALL_SPEED}
+  }
+}
+
+// Smarter dodging: the Grandmaster plans TWO moves ahead (go one way for 0.4s, then maybe turn) and looks 1.5 seconds
+// into the future. He counts HOW MANY balls each plan would let hit him, so even when he can't dodge everything he takes the fewest hits.
+function bestMoveGM(u){
+  const foe=balls.filter(b=>b.team!=u.team),sp=u.speed,n=foe.length,cmin=new Float32Array(n);
+  let best=null,bs=-1e9;
+  for(const d1 of DIRS)for(const d2 of DIRS){
+    let x=u.x,y=u.y;
+    cmin.fill(999);
+    for(let t=0.05;t<=1.5;t+=0.05){
+      const d=t<=0.4?d1:d2;
+      [x,y]=clampPos(u,x+d[0]*sp*0.05,y+d[1]*sp*0.05);
+      for(let k=0;k<n;k++){const b=foe[k],ddx=b.x+b.vx*t-x,ddy=b.y+b.vy*t-y,cl=Math.sqrt(ddx*ddx+ddy*ddy)-(GM_R+BR);if(cl<cmin[k])cmin[k]=cl}
+    }
+    // count how many balls this plan would let hit him (and how deep), plus the closest call
+    let hits=0,deep=0,mc=999;
+    for(let k=0;k<n;k++){const c=cmin[k];if(c<0){hits++;deep-=c}if(c<mc)mc=c}
+    const dw=wallGap(u,x,y),wp=dw<100?(100-dw)*1.2:0;
+    const s=-hits*1000-deep*5+(mc>8?500:0)+Math.min(mc,20)*8-wp-0.3*Math.hypot(x-u.homeX,y-u.homeY);
+    if(s>bs){bs=s;best=d1}
+  }
+  return best;
+}
+
+// Bank shot: look around the outer wall for a spot where the ball bounces off and lands on the victim
+function bankAim(u,t){
+  let best=null,bm=1e9;
+  const wr=RO-BR;
+  for(let k=0;k<90;k++){
+    const a=k*Math.PI/45,px=CX+wr*Math.cos(a),py=CY+wr*Math.sin(a);
+    const l1=Math.hypot(px-u.x,py-u.y);if(l1<1)continue;
+    const d1x=(px-u.x)/l1,d1y=(py-u.y)/l1,nx=Math.cos(a),ny=Math.sin(a),dot=d1x*nx+d1y*ny;
+    if(dot<=0)continue;
+    const d2x=d1x-2*dot*nx,d2y=d1y-2*dot*ny; // direction after the bounce
+    let vx=t.x,vy=t.y;
+    for(let i=0;i<3;i++){const l2=Math.max(0,(vx-px)*d2x+(vy-py)*d2y),T=(l1+l2)/SNIPE_SPEED;vx=t.x+t.vx*T;vy=t.y+t.vy*T}
+    if((vx-px)*d2x+(vy-py)*d2y<20)continue;
+    const miss=Math.abs((vx-px)*d2y-(vy-py)*d2x);
+    if(miss<bm){bm=miss;best=[px,py]}
+  }
+  return bm<R?best:null; // only if the bounce really lands on them
+}
+// distance from a point to the path a ball travelled this frame (so fast balls can't skip over someone)
+function segDist(ax,ay,bx,by,px,py){
+  const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy||1;
+  const t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/l2));
+  return Math.hypot(ax+dx*t-px,ay+dy*t-py);
+}
+
+// Hunting: the Grandmaster picks a victim (close and low on health) and heads for a spot right next to them
+const HUNT_DIST=60;
+function hunt(u){
+  let best=null,bs=1e9;
+  for(const t of units){
+    if(t.team==u.team||!t.alive)continue;
+    const s=Math.hypot(t.x-u.x,t.y-u.y)+t.hp*50-(t===u.target?60:0)-(Math.hypot(t.x-CX,t.y-CY)>RO-90?50:0); // also likes victims stuck near the edge
+    if(s<bs){bs=s;best=t}
+  }
+  u.target=best;
+  if(best){const dx=u.x-best.x,dy=u.y-best.y,d=Math.hypot(dx,dy)||1;u.homeX=best.x+dx/d*HUNT_DIST;u.homeY=best.y+dy/d*HUNT_DIST;
+    // never chase a spot too close to the edge, so he stays away from walls
+    const hm=mapKind=='rings'?RI*0.75:RO*0.75,hd=Math.hypot(u.homeX-CX,u.homeY-CY);
+    if(hd>hm){u.homeX=CX+(u.homeX-CX)/hd*hm;u.homeY=CY+(u.homeY-CY)/hd*hm}}
+}
+
+// ---- Game loop ----
+let last=performance.now();
+function step(now){
+  const dt=Math.min(0.05,(now-last)/1000);last=now;
+  if(state=='play')update(dt);
+  draw();requestAnimationFrame(step);
+}
+function update(dt){
+  for(const p of pulses)p.t+=dt;pulses=pulses.filter(p=>p.t<0.4);
+  for(const u of units){
+    if(!u.alive)continue;
+    let dx=0,dy=0;
+    if(u.kind=='player'){
+      dx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);
+      dy=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);
+      const m=Math.hypot(dx,dy)||1;dx/=m;dy/=m;
+    }else{if(u.kind=='gm')hunt(u);
+      // clumsy: an exhausted teammate often keeps doing what it was doing instead of reacting to new balls
+      const d=(u.kind=='mate'&&u.lastDir&&Math.random()<0.85*exh(u))?u.lastDir:(u.kind=='gm'?bestMoveGM(u):bestMove(u));
+      u.lastDir=d;dx=d[0];dy=d[1]}
+    u.vx=dx*eff(u);u.vy=dy*eff(u);
+    [u.x,u.y]=clampPos(u,u.x+u.vx*dt,u.y+u.vy*dt);
+    u.cd-=dt;u.flash=Math.max(0,u.flash-dt);
+    if(u.kind=='mate')u.tire=Math.min(1,(u.tire||0)+dt/TIRE_TIME);
+    if(u.kind=='gm'&&u.cd<=0&&swat(u)){}else if(u.kind=='gm'&&u.cd<=0){
+      const ts=team(0);
+      if(ts.length){const t=u.target&&u.target.alive?u.target:ts.reduce((a,b)=>Math.hypot(a.x-u.x,a.y-u.y)<Math.hypot(b.x-u.x,b.y-u.y)?a:b);
+        u.sw=(u.sw||0)+1;throwAt(u,t.x,t.y,t.vx,t.vy,((u.sw%3)-1)*40)} // rapid fire, fanned left/center/right to cover where the victim might dodge
+    }
+    if(u.kind=='mate'&&u.cd<=0){
+      const gm=units[1];
+      if(gm.alive){const i=units.indexOf(u);const a=Math.atan2(gm.y-u.y,gm.x-u.x),off=((i%5)-2)*12+(Math.random()-.5)*260*exh(u);throwAt(u,gm.x-Math.sin(a)*off,gm.y+Math.cos(a)*off,gm.vx*0.5,gm.vy*0.5)} // aim near him; the more tired, the wilder the aim
+    }
+  }
+  // balls
+  for(const b of balls){
+    b.px=b.x;b.py=b.y;b.x+=b.vx*dt;b.y+=b.vy*dt;
+    { // balls bounce off the outer wall (up to MAX_BOUNCES times)
+      const bx=b.x-CX,by=b.y-CY,bd=Math.hypot(bx,by);
+      if(bd>RO-BR&&(b.bn||0)<MAX_BOUNCES){
+        const nx=bx/bd,ny=by/bd,dot=b.vx*nx+b.vy*ny;
+        if(dot>0){b.vx-=2*dot*nx;b.vy-=2*dot*ny;b.bn=(b.bn||0)+1;b.x=CX+nx*(RO-BR);b.y=CY+ny*(RO-BR)}
+      }
+    }
+    for(const u of units){
+      if(u.alive&&u.team!=b.team&&segDist(b.px,b.py,b.x,b.y,u.x,u.y)<rad(u)+BR){
+        u.hp--;u.flash=.25;b.dead=true;if(u.hp<=0){u.alive=false;if(b.team==1){const gm=units[1];gm.hp=Math.min(GM_MAXHP,gm.hp+1)}}break; // each kill heals the Grandmaster by 1
+      }
+    }
+  }
+  // When balls from opposite teams touch, both pop (this clears the court)
+  for(let i=0;i<balls.length;i++)for(let j=i+1;j<balls.length;j++){
+    const a=balls[i],b=balls[j];
+    if(a.team==b.team||a.dead||b.dead)continue;
+    const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);
+    if(d>=2*BR+6||d==0)continue;
+    a.dead=true;b.dead=true;
+    pulses.push({x:(a.x+b.x)/2,y:(a.y+b.y)/2,t:0}); // little ring effect where they popped
+  }
+  balls=balls.filter(b=>!b.dead&&Math.hypot(b.x-CX,b.y-CY)<RO+60);
+  if(!units[1].alive){state='won';wins++;showRec()}
+  else if(!team(0).length){state='lost';losses++;showRec()}
+}
+function playerThrow(){
+  const p=units[0];
+  if(state!='play'||!p.alive||p.cd>0)return;
+  const a=Math.atan2(mouse.y-p.y,mouse.x-p.x);
+  balls.push({x:p.x,y:p.y,vx:Math.cos(a)*BALL_SPEED,vy:Math.sin(a)*BALL_SPEED,team:0});
+  p.cd=COOLDOWN;
+}
+
+// ---- Drawing ----
+function draw(){
+  g.clearRect(0,0,W,H);
+  g.fillStyle='#161c28';g.beginPath();g.arc(CX,CY,RO,0,7);g.fill();
+  g.strokeStyle='#ffffff40';g.lineWidth=2;
+  if(mapKind=='rings'){g.fillStyle='#2a1a20';g.beginPath();g.arc(CX,CY,RI,0,7);g.fill();g.beginPath();g.arc(CX,CY,RI,0,7);g.stroke()}
+  if(mapKind=='split'){g.fillStyle='#2a1a20';g.beginPath();g.arc(CX,CY,RO,-Math.PI/2,Math.PI/2);g.fill();g.beginPath();g.moveTo(CX,CY-RO);g.lineTo(CX,CY+RO);g.stroke()}
+  g.beginPath();g.arc(CX,CY,RO,0,7);g.stroke();
+  const p=units[0];
+  if(p.alive&&state=='play'){g.strokeStyle='#4da3ff55';g.setLineDash([6,8]);g.beginPath();g.moveTo(p.x,p.y);g.lineTo(mouse.x,mouse.y);g.stroke();g.setLineDash([])}
+  for(const p of pulses){g.strokeStyle='rgba(255,255,255,'+(0.8*(1-p.t/0.4))+')';g.lineWidth=2;g.beginPath();g.arc(p.x,p.y,6+14*p.t/0.4,0,7);g.stroke()}
+  for(const b of balls){
+    if(b.fast){g.strokeStyle='#ff4040';g.lineWidth=3;g.beginPath();g.moveTo(b.x,b.y);g.lineTo(b.x-b.vx*0.03,b.y-b.vy*0.03);g.stroke()}
+    g.fillStyle=b.team==0?'#7cc0ff':'#ff7a6e';g.beginPath();g.arc(b.x,b.y,BR,0,7);g.fill();
+  }
+  for(const u of units){
+    if(!u.alive)continue;
+    g.fillStyle=u.flash>0?'#fff':u.kind=='gm'?'#ff4d4d':u.kind=='player'?'#2f7bff':'rgb('+(127-37*(u.tire||0)|0)+','+(168-70*(u.tire||0)|0)+','+(217-103*(u.tire||0)|0)+')'; // tired teammates fade to grey
+    g.beginPath();g.arc(u.x,u.y,rad(u),0,7);g.fill();
+    if(u.kind=='gm'){g.strokeStyle='#ffd24d';g.lineWidth=3;g.stroke()}
+    {const n=Math.max(MAXHP,u.hp);for(let i=0;i<n;i++){g.fillStyle=i<u.hp?'#6bff9a':'#444';g.fillRect(u.x-n*5.5+i*11,u.y-rad(u)-10,9,4)}}
+    if(u.cd>0&&u.kind=='player'){g.fillStyle='#ffffff50';g.fillRect(u.x-15,u.y+R+5,30*(u.cd/COOLDOWN),3)}
+  }
+  g.fillStyle='#ffffffaa';g.font='13px sans-serif';g.textAlign='left';g.fillText('YOUR TEAM'+energyText(),10,18);
+  g.textAlign='right';g.fillText('GRANDMASTER',W-10,18);
+  if(state!='play'){
+    g.fillStyle='#000a';g.fillRect(0,0,W,H);g.fillStyle='#fff';g.textAlign='center';g.font='bold 34px sans-serif';
+    g.fillText(state=='won'?'YOU BEAT THE GRANDMASTER!':'The Grandmaster wins',W/2,H/2);
+    g.font='15px sans-serif';g.fillText('Press Restart',W/2,H/2+30);
+  }
+}
+function showRec(){document.getElementById('rec').textContent='Wins: '+wins+'  •  Losses: '+losses}
+
+// ---- Controls ----
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=true;if(k==' '){e.preventDefault();playerThrow()}if(k.startsWith('arrow'))e.preventDefault()});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+c.addEventListener('mousemove',e=>{const r=c.getBoundingClientRect();mouse.x=(e.clientX-r.left)*W/r.width;mouse.y=(e.clientY-r.top)*H/r.height});
+c.addEventListener('mousedown',playerThrow);
+const add=document.getElementById('add');
+add.onclick=()=>{addUnit();add.textContent='+ Add CPU teammate ('+mates+'/'+MAX_MATES+')';add.disabled=mates>=MAX_MATES};
+document.getElementById('reset').onclick=reset;
+const rate=document.getElementById('rate');
+rate.oninput=()=>{gmRate=+rate.value;document.getElementById('rv').textContent=gmRate};
+rate.onchange=()=>rate.blur();
+document.getElementById('map').onchange=e=>{mapKind=e.target.value;e.target.blur();reset()};
+reset();showRec();requestAnimationFrame(step);
+</script></body></html>
