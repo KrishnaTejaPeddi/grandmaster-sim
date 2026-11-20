@@ -3,53 +3,213 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Dodgeball vs the Grandmaster</title>
 <style>
-:root{--bg:#f2f3f7;--fg:#1b1f2a;--mut:#5d6578;--btn:#dfe3ee;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0e1116;--fg:#e8eaf0;--mut:#8b93a5;--btn:#222838;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#0e1116;--fg:#e8eaf0;--mut:#8b93a5;--btn:#222838;color-scheme:dark}
-body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,system-ui,sans-serif;text-align:center}
-h1{font-size:20px;margin:14px 0 4px}
-p{margin:4px 12px;color:var(--mut);font-size:13px}
-canvas{display:block;margin:10px auto;max-width:100%;height:auto;border-radius:10px;background:#10141c;cursor:crosshair}
-button{font:inherit;font-size:14px;padding:8px 14px;margin:4px;border:0;border-radius:8px;background:var(--btn);color:var(--fg);cursor:pointer}
+:root{
+  --bg:#f2f3f7;--bg-glow:#ffffff;--fg:#1b1f2a;--mut:#5d6578;--line:#dfe3ee;
+  --surface:#dfe3ee;--surface-hover:#ced7e8;--accent:#2f7bff;--focus:#7cc0ff;
+  color-scheme:light;box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1116;--bg-glow:#171d28;--fg:#e8eaf0;--mut:#8b93a5;--line:#30394a;
+  --surface:#222838;--surface-hover:#2b3448;--accent:#4da3ff;--focus:#7cc0ff;color-scheme:dark
+}}
+:root[data-theme="dark"]{--bg:#0e1116;--bg-glow:#171d28;--fg:#e8eaf0;--mut:#8b93a5;--line:#30394a;--surface:#222838;--surface-hover:#2b3448;--accent:#4da3ff;--focus:#7cc0ff;color-scheme:dark}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 0%,var(--bg-glow),var(--bg) 62%);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+.app-shell{width:min(900px,calc(100% - 36px));margin:0 auto;padding:clamp(26px,5vw,52px) 0 34px}
+.page-head,.game-area,.control-panel{width:min(100%,760px);margin-left:auto;margin-right:auto}
+.page-head{margin-bottom:18px}
+.eyebrow{display:flex;align-items:center;gap:9px;color:var(--mut);font-size:10px;font-weight:650;letter-spacing:.17em;text-transform:uppercase}
+.eyebrow::before{content:"";display:block;width:22px;height:1px;background:var(--accent);opacity:.8}
+.headline-row{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-top:10px}
+h1{margin:0;font-size:clamp(24px,3.4vw,32px);font-weight:560;letter-spacing:-.045em;line-height:1.12}
+.edition{color:var(--mut);font-size:10px;letter-spacing:.12em;white-space:nowrap}
+.instructions{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin:12px 0 0;color:var(--mut);font-size:12px;letter-spacing:.005em}
+.key{display:inline-flex;align-items:center;min-height:21px;padding:2px 6px;border:1px solid var(--line);border-radius:5px;color:var(--fg);font-size:10px;letter-spacing:.045em}
+.separator{padding:0 2px;color:var(--line)}
+.game-area{position:relative}
+canvas{display:block;width:100%;height:auto;margin:0 auto;border:1px solid rgba(150,158,145,.22);border-radius:17px;background:#151b23;box-shadow:0 16px 42px rgba(18,22,17,.10),0 2px 6px rgba(18,22,17,.06);cursor:crosshair;touch-action:manipulation}
+.control-panel{margin-top:18px;padding:15px 2px 0;border-top:1px solid var(--line)}
+.control-main{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.field-group{display:flex;align-items:center;gap:11px}
+.field-group label,.rate-label{color:var(--mut);font-size:10px;font-weight:650;letter-spacing:.14em;text-transform:uppercase}
+select{appearance:none;min-width:142px;padding:8px 30px 8px 10px;border:1px solid var(--line);border-radius:7px;background-color:var(--surface);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='m1 1 4 4 4-4' fill='none' stroke='%23858b80' stroke-width='1.2'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;color:var(--fg);font:inherit;font-size:12px;cursor:pointer}
+.button-group{display:flex;align-items:center;gap:7px}
+button{margin:0;padding:9px 13px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--fg);font:inherit;font-size:12px;cursor:pointer;transition:background .16s ease,border-color .16s ease,transform .16s ease}
+button:hover:not(:disabled){background:var(--surface-hover);border-color:var(--focus)}
+button:active:not(:disabled){transform:translateY(1px)}
+button.primary{border-color:transparent;background:#dce8ff;color:#1b1f2a;font-weight:600}
 button:disabled{opacity:.4;cursor:default}
+.rate-row{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-top:17px}
+.rate-value{color:var(--fg);font-size:12px;font-weight:600;letter-spacing:0}
+.rate-value span{color:var(--mut);font-size:11px;font-weight:400}
+input[type=range]{width:min(300px,42%);height:3px;margin:0;accent-color:var(--accent);cursor:pointer}
+input[type=range]:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+#rec{min-height:16px;margin:13px 0 0;color:var(--mut);font-size:11px;letter-spacing:.025em}
+@media(max-width:680px){
+  .app-shell{width:calc(100% - 24px);padding-top:25px}
+  .page-head{margin-bottom:14px}
+  .control-main{align-items:flex-start;flex-direction:column;gap:13px}
+  .button-group{width:100%}
+  .button-group button:first-child{flex:1}
+  .rate-row{align-items:flex-start;flex-direction:column;gap:10px}
+  input[type=range]{width:100%}
+  canvas{border-radius:12px}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}}
 </style></head><body>
-<h1>Dodgeball vs the Grandmaster</h1>
-<p>Move: WASD / arrows &nbsp;•&nbsp; Aim: mouse &nbsp;•&nbsp; Throw: click or Space</p>
-<canvas id="c" width="1000" height="1000"></canvas>
-<div><label for="map" style="font-size:14px">Map: </label><select id="map" style="font:inherit;font-size:14px;padding:6px"><option value="rings">Two circles</option><option value="arena">One big circle</option><option value="split">Split circle</option></select></div>
-<div><button id="add">+ Add CPU teammate</button><button id="reset">Restart</button></div>
-<div><label for="rate" style="font-size:14px">Grandmaster attack rate: <b id="rv">7</b> throws/sec</label><br><input type="range" id="rate" min="1" max="40" step="1" value="7" style="width:min(320px,80%)"></div>
-<p id="rec"></p>
+<main class="app-shell">
+  <header class="page-head">
+    <div class="eyebrow">A little friendly competition</div>
+    <div class="headline-row"><h1>Dodgeball vs the Grandmaster</h1><span class="edition">01&nbsp; / &nbsp;ARENA</span></div>
+    <p class="instructions"><span class="key">WASD</span><span>Move</span><span class="separator">·</span><span class="key">MOUSE</span><span>Aim</span><span class="separator">·</span><span class="key">CLICK / SPACE</span><span>Throw</span></p>
+  </header>
+  <section class="game-area" aria-label="Dodgeball game">
+    <canvas id="c" width="1000" height="1000"></canvas>
+  </section>
+  <section class="control-panel" aria-label="Game settings">
+    <div class="control-main">
+      <div class="field-group"><label for="map">Arena</label><select id="map"><option value="rings">Two circles</option><option value="arena">One big circle</option><option value="split">Split circle</option></select></div>
+      <div class="field-group"><label for="extra-gm">Second Grandmaster</label><select id="extra-gm"><option value="none">Off</option><option value="0">Your team</option><option value="1">Opposing team</option></select></div>
+      <div class="button-group"><button id="add" class="primary">+ Add teammate (0/40)</button><button id="reset">Restart ↺</button></div>
+    </div>
+    <div class="rate-row">
+      <label class="rate-label" for="rate">Grandmaster pace <span class="rate-value"><b id="rv">7</b> <span>throws / sec</span></span></label>
+      <input type="range" id="rate" min="1" max="80" step="1" value="7">
+    </div>
+    <p id="rec"></p>
+  </section>
+</main>
 <script>
 // ---- Settings (everyone throws with the SAME power) ----
-const W=1000,H=1000,CX=500,CY=500,RO=485,RI=215,R=14,GM_R=10,BR=7,BALL_SPEED=380,COOLDOWN=0.45,MAXHP=3,GM_MAXHP=10,SNIPE_SPEED=380,MAX_BOUNCES=0,TIRE_TIME=75,PULSE_CD=6,PULSE_R=170,MAX_MATES=25;
+const W=1000,H=1000,CX=500,CY=500,RO=485,RI=215,R=14,GM_R=10,BR=7,BALL_SPEED=380,COOLDOWN=0.45,MAXHP=3,SNIPE_SPEED=380,MAX_BOUNCES=0,TIRE_TIME=75,PULSE_CD=6,PULSE_R=170,MAX_MATES=40;
 const c=document.getElementById('c'),g=c.getContext('2d');
-let mapKind='rings',pulses=[],pulseCd=3,gmRate=7,units,balls,mates=0,state='play',wins=0,losses=0,mouse={x:600,y:230},keys={};
+let mapKind='rings',extraGMTeam=null,pulses=[],pulseCd=3,gmRate=7,units,balls,mates=0,state='play',wins=0,losses=0,mouse={x:600,y:230},keys={},simTime=0,nextUnitId=0;
 
-function mk(team,x,y,kind,speed){return{team,x,y,vx:0,vy:0,kind,speed,hp:MAXHP,cd:1+Math.random(),homeY:y,homeX:x,flash:0,alive:true}}
+function mk(team,x,y,kind,speed){return{id:nextUnitId++,team,x,y,vx:0,vy:0,kind,speed,hp:MAXHP,cd:1+Math.random(),homeY:y,homeX:x,flash:0,alive:true}}
+function syncAddButton(){
+  const button=document.getElementById('add');
+  if(!button)return;
+  button.textContent='+ Add teammate ('+mates+'/'+MAX_MATES+')';
+  button.disabled=mates>=MAX_MATES;
+}
+
+// Search candidate spawn points and place each new teammate in the roomiest one.
+// This avoids stacking newly added CPUs before their movement AI has time to spread them.
+const GOLDEN_ANGLE=Math.PI*(3-Math.sqrt(5));
+function chooseMateSpawn(n){
+  const existing=units.filter(u=>u.team===0&&u.alive);
+  const mover={team:0,kind:'mate'};
+  const inner=RI+R+28,outer=RO-R-28;
+  let best=null,bestGap=-1;
+  for(let k=0;k<150;k++){
+    let x,y;
+    if(mapKind==='rings'){
+      const f=((n*0.38196601125+k*0.61803398875)%1);
+      const rr=Math.sqrt(inner*inner+f*(outer*outer-inner*inner));
+      const a=(n*0.754877666+k)*GOLDEN_ANGLE;
+      x=CX+rr*Math.cos(a);y=CY+rr*Math.sin(a);
+    }else{
+      const f=((n*0.41421356237+k*0.61803398875)%1);
+      const rr=55+265*Math.sqrt(f);
+      const side=((n*0.2718281828+k*0.61803398875)%1-0.5)*2.05;
+      const a=Math.PI+side;
+      x=CX-205+rr*Math.cos(a);y=CY+rr*Math.sin(a);
+    }
+    [x,y]=clampPos(mover,x,y);
+    let nearest=Infinity;
+    for(const ally of existing){
+      const gap=Math.hypot(x-ally.x,y-ally.y);
+      if(gap<nearest)nearest=gap;
+    }
+    if(nearest>bestGap){bestGap=nearest;best=[x,y]}
+  }
+  return best||[CX-250,CY];
+}
+function chooseGMSpawn(teamId){
+  const gm={team:teamId,kind:'gm'};
+  let best=null,bestGap=-1;
+  for(let k=0;k<360;k++){
+    const a=k*GOLDEN_ANGLE+(teamId===0?Math.PI:0);
+    let x,y;
+    if(mapKind==='rings'){
+      const r=72+(k%6)*21;
+      x=CX+r*Math.cos(a);y=CY+r*Math.sin(a);
+    }else{
+      const side=teamId===0?-1:1;
+      const r=45+(k%5)*28;
+      x=CX+side*(238+r*Math.cos(a));
+      y=CY+r*1.25*Math.sin(a);
+    }
+    [x,y]=clampPos(gm,x,y);
+    let nearest=Infinity;
+    for(const ally of units.filter(u=>u.alive&&(u.team===teamId||u.kind==='gm'))){
+      nearest=Math.min(nearest,Math.hypot(x-ally.x,y-ally.y));
+    }
+    if(nearest>bestGap){bestGap=nearest;best=[x,y]}
+  }
+  return best||[CX+(teamId===0?-100:100),CY];
+}
 function reset(){
   units=mapKind=='rings'?[mk(0,CX-(RI+RO)/2,CY,'player',210),mk(1,CX,CY,'gm',470)]:[mk(0,CX-300,CY,'player',210),mk(1,CX+300,CY,'gm',470)];
+  if(extraGMTeam!==null){
+    const [gx,gy]=chooseGMSpawn(extraGMTeam);
+    const secondGM=mk(extraGMTeam,gx,gy,'gm',650);
+    secondGM.isSecondGM=true;
+    units.push(secondGM);
+  }
   for(let i=0;i<mates;i++)addUnit(false);
-  balls=[];pulses=[];pulseCd=3;state='play';
+  balls=[];pulses=[];pulseCd=3;simTime=0;state='play';
+  syncAddButton();
 }
 function addUnit(cap=true){
   const n=units.filter(u=>u.team==0&&u.kind=='mate').length;
   if(n>=MAX_MATES)return;
-  const a=Math.PI+n*2.4,rm=(RI+RO)/2+(n%2?30:-30),y=CY+rm*Math.sin(a);
-  units.push(mapKind=='rings'?mk(0,CX+rm*Math.cos(a),y,'mate',210):mk(0,CX-90-(n%3)*55,CY+((n*97)%520)-260,'mate',210));
-  if(cap)mates=n+1;
+  const [x,y]=chooseMateSpawn(n);
+  units.push(mk(0,x,y,'mate',210));
+  if(cap){mates=n+1;syncAddButton()}
 }
 function team(t){return units.filter(u=>u.team==t&&u.alive)}
 
-// ---- Throwing: aim where the target WILL be ----
+// ---- Throwing: solve the moving-target intercept instead of guessing a short lead ----
+const GM_AIM_MAX_LEAD=1.35;
+const GM_BURST_SHOTS=3;
+const GM_BURST_SPREAD=44; // wide left / centre / right fan, matching the original barrage coverage
+// The optional second Grandmaster is deliberately more relentless than the original.
+const GM_SECOND_BURST_SHOTS=5;
+const GM_SECOND_BURST_SPREAD=58;
+const GM_SECOND_FIRE_MULTIPLIER=2.35;
+// In the final phase, the Grandmaster periodically launches a two-armed spiral.
+const GM_SPIRAL_TRIGGER_HP=1; // only begins when the Grandmaster is down to his final hit
+const GM_SPIRAL_SHOTS=24;
+const GM_SPIRAL_INTERVAL=0.065;
+const GM_SPIRAL_TURN=0.54;
+const GM_SPIRAL_COOLDOWN=4.2;
 function throwAt(u,tx,ty,tvx,tvy,spread=0){
-  const SPD=u.kind=='gm'?SNIPE_SPEED:BALL_SPEED; // the Grandmaster's ball is much faster than everyone else's
-  let px=tx,py=ty;
-  for(let i=0;i<3;i++){const t=Math.min(0.45,Math.hypot(px-u.x,py-u.y)/SPD);px=tx+tvx*t;py=ty+tvy*t}
-  py+=spread;
-  const a=Math.atan2(py-u.y,px-u.x);
-  balls.push({x:u.x,y:u.y,vx:Math.cos(a)*SPD,vy:Math.sin(a)*SPD,team:u.team,fast:false});
-  u.cd=u.kind=='gm'?1/gmRate:COOLDOWN*(u.kind=='mate'?1+4*exh(u):1); // exhausted teammates throw much less often (5x the wait at 0 energy)
+  const speed=u.kind=='gm'?SNIPE_SPEED:BALL_SPEED;
+  const rx=tx-u.x,ry=ty-u.y;
+  const a=tvx*tvx+tvy*tvy-speed*speed;
+  const b=2*(rx*tvx+ry*tvy);
+  const c0=rx*rx+ry*ry;
+  const disc=b*b-4*a*c0;
+  let intercept=Math.sqrt(c0)/speed;
+  if(Math.abs(a)<1e-8){
+    if(Math.abs(b)>1e-8){const t=-c0/b;if(t>0)intercept=t}
+  }else if(disc>=0){
+    const root=Math.sqrt(disc),t1=(-b-root)/(2*a),t2=(-b+root)/(2*a);
+    const valid=[t1,t2].filter(t=>t>0);
+    if(valid.length)intercept=Math.min(...valid);
+  }
+  // Long forecasts become unreliable when dodging bots change direction, so cap the lead.
+  const lead=Math.min(GM_AIM_MAX_LEAD,intercept);
+  let px=tx+tvx*lead,py=ty+tvy*lead;
+  const angle=Math.atan2(py-u.y,px-u.x);
+  // Fan the three-shot volley to the target’s left, centre, and right so one dodge cannot avoid every shot.
+  px+=-Math.sin(angle)*spread;
+  py+= Math.cos(angle)*spread;
+  const shotAngle=Math.atan2(py-u.y,px-u.x);
+  balls.push({x:u.x,y:u.y,vx:Math.cos(shotAngle)*speed,vy:Math.sin(shotAngle)*speed,team:u.team,fast:false});
+  u.cd=u.kind=='gm'?1/(gmRate*(u.isSecondGM?GM_SECOND_FIRE_MULTIPLIER:1)):COOLDOWN*(u.kind=='mate'?1+4*exh(u):1); // exhausted teammates throw much less often (5x the wait at 0 energy)
 }
 
 // Where each unit may stand: the Grandmaster stays inside the inner circle, everyone else in the outer ring.
@@ -78,8 +238,22 @@ function energyText(){const ms=units.filter(u=>u.kind=='mate');if(!ms.length)ret
 // Try 9 moves (stand still + 8 directions). For each, imagine the next 1.2 seconds
 // and see how close every incoming ball would get. Pick the move with the biggest safety gap.
 const DIRS=[[0,0]];for(let i=0;i<16;i++){const a=i*Math.PI/8;DIRS.push([Math.cos(a),Math.sin(a)])}
+const MATE_SPACING=154;
 function bestMove(u){
   const enemy=balls.filter(b=>b.team!=u.team);
+  const allies=units.filter(a=>a!==u&&a.alive&&a.kind==='mate');
+  let repelX=0,repelY=0;
+  for(const ally of allies){
+    let dx=u.x-ally.x,dy=u.y-ally.y,gap=Math.hypot(dx,dy);
+    if(gap>=MATE_SPACING)continue;
+    if(gap<0.001){
+      // Stable per-unit escape directions prevent perfectly overlapping CPUs from freezing together.
+      const a=(u.id+1)*GOLDEN_ANGLE+(ally.id+1)*0.37;
+      dx=Math.cos(a);dy=Math.sin(a);gap=1;
+    }
+    const weight=(MATE_SPACING-gap)/MATE_SPACING;
+    repelX+=dx/gap*weight;repelY+=dy/gap*weight;
+  }
   let best=null,bs=-1e9;
   for(const d of DIRS){
     let minClear=999,ex=u.x,ey=u.y;
@@ -91,10 +265,29 @@ function bestMove(u){
         if(cl<minClear)minClear=cl;
       }
     }
-    const dw=wallGap(u,ex,ey); // distance to nearest wall
-    const wallPenalty=dw<100?(100-dw)*(u.kind=='gm'?1.2:1.0):0; // staying near a wall costs points, so it leaves walls
-    const aggr=u.kind=='gm'; // the Grandmaster takes more risks and cares much more about closing in
-    const s=(minClear>6?1000:0)+Math.min(minClear,aggr?14:30)*10-wallPenalty*(aggr?1:0.5)-(aggr?0.3:0.04)*Math.hypot(ex-u.homeX,ey-u.homeY); // any safe move beats any risky move; then walls, then chasing
+    const dw=wallGap(u,ex,ey);
+    const wallPenalty=dw<100?(100-dw):0;
+    let crowdPenalty=0;
+    // Compare the whole escape path with where nearby teammates are likely to move,
+    // not just the candidate's endpoint against their old positions.
+    const spacingSamples=[0.24,0.48,0.72,0.96,1.20];
+    for(const t of spacingSamples){
+      const [px,py]=clampPos(u,u.x+d[0]*eff(u)*t,u.y+d[1]*eff(u)*t);
+      for(const ally of allies){
+        const [ax,ay]=clampPos(ally,ally.x+(ally.vx||0)*t*0.72,ally.y+(ally.vy||0)*t*0.72);
+        const gap=Math.hypot(px-ax,py-ay);
+        if(gap<MATE_SPACING){
+          const shortfall=(MATE_SPACING-gap)/MATE_SPACING;
+          crowdPenalty+=shortfall*shortfall;
+        }
+      }
+    }
+    crowdPenalty/=spacingSamples.length;
+    const awayDrive=d[0]*repelX+d[1]*repelY;
+    const safety=(minClear>6?1000:0)+Math.min(minClear,30)*10;
+    const spreadScore=-Math.min(crowdPenalty,2.4)*420+awayDrive*150;
+    const homePenalty=0.04*Math.hypot(ex-u.homeX,ey-u.homeY);
+    const s=safety-wallPenalty*0.5+spreadScore-homePenalty;
     if(s>bs){bs=s;best=d}
   }
   return best;
@@ -154,8 +347,17 @@ function bestMoveGM(u){
     // count how many balls this plan would let hit him (and how deep), plus the closest call
     let hits=0,deep=0,mc=999;
     for(let k=0;k<n;k++){const c=cmin[k];if(c<0){hits++;deep-=c}if(c<mc)mc=c}
-    const dw=wallGap(u,x,y),wp=dw<100?(100-dw)*1.2:0;
-    const s=-hits*1000-deep*5+(mc>8?500:0)+Math.min(mc,20)*8-wp-0.3*Math.hypot(x-u.homeX,y-u.homeY);
+    const dw=wallGap(u,x,y);
+    // In the one-big-circle arena, the Grandmaster should actively push into the
+    // opponent formation instead of orbiting the perimeter. Keep dodging first,
+    // but strongly reward moves that close the distance to his chosen crowd point.
+    const arenaMode=mapKind==='arena';
+    const wallPenalty=arenaMode?(dw<145?(145-dw)*1.7:0):(dw<100?(100-dw)*1.2:0);
+    const startHome=Math.hypot(u.x-u.homeX,u.y-u.homeY);
+    const endHome=Math.hypot(x-u.homeX,y-u.homeY);
+    const chaseProgress=startHome-endHome;
+    const chaseWeight=arenaMode?(u.isSecondGM?3.7:2.25):(u.isSecondGM?1.45:0.3);
+    const s=-hits*1000-deep*5+(mc>8?500:0)+Math.min(mc,20)*8-wallPenalty+chaseProgress*chaseWeight;
     if(s>bs){bs=s;best=d1}
   }
   return best;
@@ -186,20 +388,174 @@ function segDist(ax,ay,bx,by,px,py){
   return Math.hypot(ax+dx*t-px,ay+dy*t-py);
 }
 
-// Hunting: the Grandmaster picks a victim (close and low on health) and heads for a spot right next to them
+// True when one of the Grandmaster's existing throws is already on course to hit this target.
+// This prevents him from spending several extra throws on a bot that is already covered.
+function hasIncomingGMball(target,gm){
+  for(const b of balls){
+    if(b.team!==gm.team||b.dead)continue;
+    const rx=b.x-target.x,ry=b.y-target.y;
+    const vx=b.vx-target.vx,vy=b.vy-target.vy;
+    const v2=vx*vx+vy*vy;
+    if(v2<1)continue;
+    const t=-(rx*vx+ry*vy)/v2;
+    if(t<0.03||t>GM_AIM_MAX_LEAD)continue;
+    const dx=rx+vx*t,dy=ry+vy*t;
+    if(Math.hypot(dx,dy)<=R+BR+5)return true;
+  }
+  return false;
+}
+
+function startGMSpiral(u){
+  const targets=team(1-u.team);
+  if(!targets.length)return false;
+  const tx=targets.reduce((sum,t)=>sum+t.x,0)/targets.length;
+  const ty=targets.reduce((sum,t)=>sum+t.y,0)/targets.length;
+  u.spiralActive=true;
+  u.spiralShotsLeft=u.isSecondGM?36:GM_SPIRAL_SHOTS;
+  u.spiralShotsFired=0;
+  u.spiralShotTimer=0;
+  u.spiralBaseAngle=Math.atan2(ty-u.y,tx-u.x);
+  u.spiralDirection=(u.spiralBursts||0)%2===0?1:-1;
+  u.spiralBursts=(u.spiralBursts||0)+1;
+  u.spiralVisualAngle=0;
+  return true;
+}
+function updateGMSpiral(u,dt){
+  if(u.hp<=GM_SPIRAL_TRIGGER_HP&&!u.spiralPhase){
+    u.spiralPhase=true;
+    u.spiralCooldown=u.isSecondGM?0.22:0.55;
+  }
+  if(!u.spiralPhase)return false;
+  u.spiralVisualAngle=(u.spiralVisualAngle||0)+dt*8;
+  if(!u.spiralActive){
+    u.spiralCooldown=Math.max(0,(u.spiralCooldown||0)-dt);
+    if(u.spiralCooldown<=0)startGMSpiral(u);
+  }
+  if(!u.spiralActive)return false;
+  u.spiralShotTimer-=dt;
+  if(u.spiralShotTimer<=0&&u.spiralShotsLeft>0){
+    // Alternate two opposite arms while each arm steadily rotates around the arena.
+    const shot=u.spiralShotsFired;
+    const arm=shot%2?Math.PI:0;
+    const turn=Math.floor(shot/2)*GM_SPIRAL_TURN*u.spiralDirection;
+    const a=u.spiralBaseAngle+arm+turn;
+    balls.push({x:u.x,y:u.y,vx:Math.cos(a)*SNIPE_SPEED,vy:Math.sin(a)*SNIPE_SPEED,team:u.team,spiral:true});
+    u.spiralShotsFired++;
+    u.spiralShotsLeft--;
+    u.spiralShotTimer=GM_SPIRAL_INTERVAL*(u.isSecondGM?0.58:1);
+    if(u.spiralShotsLeft<=0){
+      u.spiralActive=false;
+      u.spiralCooldown=GM_SPIRAL_COOLDOWN*(u.isSecondGM?0.62:1);
+      u.cd=Math.max(u.cd,0.16);
+    }
+  }
+  return true;
+}
+
+// Select the most promising uncovered target, while penalizing recent focus so he
+// spreads attacks around the team instead of repeatedly bullying one CPU.
+function nextGMTarget(u){
+  const live=team(1-u.team);
+  if(!live.length)return null;
+  // The original GM avoids targets already covered by his own throws. The second
+  // GM is more relentless: he can keep pressure on those targets, but still prefers
+  // someone who is not already being hit when another good option exists.
+  const pool=u.isSecondGM?live:live.filter(t=>!hasIncomingGMball(t,u));
+  if(!pool.length)return null;
+  let best=null,bestScore=Infinity;
+  for(const target of pool){
+    const distance=Math.hypot(target.x-u.x,target.y-u.y);
+    const fatigue=target.tire||0;
+    const lastFocused=target.gmLastTargetAt===undefined?-999:target.gmLastTargetAt;
+    // A fan aimed at a bot near another teammate has a chance to catch both.
+    let nearbyCoverage=0;
+    for(const ally of live){
+      if(ally===target)continue;
+      const gap=Math.hypot(ally.x-target.x,ally.y-target.y);
+      if(gap<118)nearbyCoverage+=(118-gap)/118;
+    }
+    const movement=Math.hypot(target.vx||0,target.vy||0);
+    let score;
+    if(u.isSecondGM){
+      const incoming=hasIncomingGMball(target,u);
+      const recentPenalty=Math.max(0,1.15-(simTime-lastFocused))*30;
+      score=distance*0.19+Math.max(0,target.hp-1)*17-fatigue*92+recentPenalty-nearbyCoverage*34+(incoming?48:0)+movement*0.018+Math.random()*2;
+    }else{
+      const healthPenalty=Math.max(0,target.hp-1)*34;
+      const fatigueBonus=fatigue*62;
+      const recentPenalty=Math.max(0,2.6-(simTime-lastFocused))*112;
+      score=distance*0.34+healthPenalty-fatigueBonus+recentPenalty-nearbyCoverage*22+movement*0.035+Math.random()*2;
+    }
+    if(score<bestScore){bestScore=score;best=target}
+  }
+  if(best)best.gmLastTargetAt=simTime;
+  return best;
+}
+
+// CPU teammates aim at a living opposing Grandmaster first. If none remain, they
+// continue fighting the closest surviving opponent instead of relying on units[1].
+function chooseMateTarget(u){
+  const enemies=units.filter(t=>t.alive&&t.team!==u.team);
+  if(!enemies.length)return null;
+  const grandmasters=enemies.filter(t=>t.kind==='gm');
+  const pool=grandmasters.length?grandmasters:enemies;
+  let best=null,bestScore=Infinity;
+  for(const target of pool){
+    const distance=Math.hypot(target.x-u.x,target.y-u.y);
+    const recent=target.mateLastTargetAt===undefined?-999:target.mateLastTargetAt;
+    const repeatPenalty=Math.max(0,1.8-(simTime-recent))*95;
+    const score=distance+Math.max(0,target.hp-1)*24+repeatPenalty+Math.random()*8;
+    if(score<bestScore){bestScore=score;best=target}
+  }
+  if(best)best.mateLastTargetAt=simTime;
+  return best;
+}
+
+// Hunting follows the firing target. In the one-big-circle arena, movement
+// aims for the densest enemy pocket so the Grandmaster charges into the crowd.
 const HUNT_DIST=60;
 function hunt(u){
-  let best=null,bs=1e9;
-  for(const t of units){
-    if(t.team==u.team||!t.alive)continue;
-    const s=Math.hypot(t.x-u.x,t.y-u.y)+t.hp*50-(t===u.target?60:0)-(Math.hypot(t.x-CX,t.y-CY)>RO-90?50:0); // also likes victims stuck near the edge
-    if(s<bs){bs=s;best=t}
+  if(!u.target||!u.target.alive){
+    const next=nextGMTarget(u);
+    if(next!==u.target)u.gmBurstShots=0;
+    u.target=next;
   }
-  u.target=best;
-  if(best){const dx=u.x-best.x,dy=u.y-best.y,d=Math.hypot(dx,dy)||1;u.homeX=best.x+dx/d*HUNT_DIST;u.homeY=best.y+dy/d*HUNT_DIST;
-    // never chase a spot too close to the edge, so he stays away from walls
-    const hm=mapKind=='rings'?RI*0.75:RO*0.75,hd=Math.hypot(u.homeX-CX,u.homeY-CY);
-    if(hd>hm){u.homeX=CX+(u.homeX-CX)/hd*hm;u.homeY=CY+(u.homeY-CY)/hd*hm}}
+  const best=u.target;
+  if(!best)return;
+
+  if(mapKind==='arena'){
+    const foes=team(1-u.team);
+    // Find the most populated neighbourhood, then steer toward its centre.
+    // This makes him engage the group rather than chase one isolated bot to the rim.
+    let densest=[];
+    const clusterRadius=235;
+    for(const anchor of foes){
+      const nearby=foes.filter(t=>Math.hypot(t.x-anchor.x,t.y-anchor.y)<clusterRadius);
+      if(nearby.length>densest.length)densest=nearby;
+    }
+    if(!densest.length)densest=[best];
+    let cx=0,cy=0;
+    for(const t of densest){cx+=t.x;cy+=t.y}
+    u.homeX=cx/densest.length;
+    u.homeY=cy/densest.length;
+    // Lead the crowd slightly so he runs through its current formation instead
+    // of stopping at its old centre as the CPUs spread and dodge.
+    let avx=0,avy=0;
+    for(const t of densest){avx+=t.vx||0;avy+=t.vy||0}
+    u.homeX+=avx/densest.length*0.18;
+    u.homeY+=avy/densest.length*0.18;
+    [u.homeX,u.homeY]=clampPos(u,u.homeX,u.homeY);
+    return;
+  }
+
+  const look=Math.min(0.32,Math.hypot(best.x-u.x,best.y-u.y)/SNIPE_SPEED*0.45);
+  const tx=best.x+(best.vx||0)*look,ty=best.y+(best.vy||0)*look;
+  const dx=u.x-tx,dy=u.y-ty,d=Math.hypot(dx,dy)||1;
+  const standOff=u.isSecondGM?10:HUNT_DIST;
+  u.homeX=tx+dx/d*standOff;u.homeY=ty+dy/d*standOff;
+  // Keep the original positioning rule in the ring and split arenas.
+  const hm=mapKind=='rings'?RI*0.75:RO*0.75,hd=Math.hypot(u.homeX-CX,u.homeY-CY);
+  if(hd>hm){u.homeX=CX+(u.homeX-CX)/hd*hm;u.homeY=CY+(u.homeY-CY)/hd*hm}
 }
 
 // ---- Game loop ----
@@ -210,6 +566,7 @@ function step(now){
   draw();requestAnimationFrame(step);
 }
 function update(dt){
+  simTime+=dt;
   for(const p of pulses)p.t+=dt;pulses=pulses.filter(p=>p.t<0.4);
   for(const u of units){
     if(!u.alive)continue;
@@ -220,20 +577,44 @@ function update(dt){
       const m=Math.hypot(dx,dy)||1;dx/=m;dy/=m;
     }else{if(u.kind=='gm')hunt(u);
       // clumsy: an exhausted teammate often keeps doing what it was doing instead of reacting to new balls
-      const d=(u.kind=='mate'&&u.lastDir&&Math.random()<0.85*exh(u))?u.lastDir:(u.kind=='gm'?bestMoveGM(u):bestMove(u));
+      const d=(u.kind=='mate'&&u.lastDir&&Math.random()<0.35*exh(u))?u.lastDir:(u.kind=='gm'?bestMoveGM(u):bestMove(u));
       u.lastDir=d;dx=d[0];dy=d[1]}
     u.vx=dx*eff(u);u.vy=dy*eff(u);
     [u.x,u.y]=clampPos(u,u.x+u.vx*dt,u.y+u.vy*dt);
     u.cd-=dt;u.flash=Math.max(0,u.flash-dt);
     if(u.kind=='mate')u.tire=Math.min(1,(u.tire||0)+dt/TIRE_TIME);
-    if(u.kind=='gm'&&u.cd<=0&&swat(u)){}else if(u.kind=='gm'&&u.cd<=0){
-      const ts=team(0);
-      if(ts.length){const t=u.target&&u.target.alive?u.target:ts.reduce((a,b)=>Math.hypot(a.x-u.x,a.y-u.y)<Math.hypot(b.x-u.x,b.y-u.y)?a:b);
-        u.sw=(u.sw||0)+1;throwAt(u,t.x,t.y,t.vx,t.vy,((u.sw%3)-1)*40)} // rapid fire, fanned left/center/right to cover where the victim might dodge
+    if(u.kind=='gm'&&updateGMSpiral(u,dt)){}else if(u.kind=='gm'&&u.cd<=0&&swat(u)){}else if(u.kind=='gm'&&u.cd<=0){
+      if(team(1-u.team).length){
+        let target=u.target&&u.target.alive?u.target:null;
+        const burstLimit=u.isSecondGM?GM_SECOND_BURST_SHOTS:GM_BURST_SHOTS;
+        // The original finishes a compact three-shot fan. The second GM unleashes
+        // a longer five-shot sweep before switching targets.
+        if(!target||(u.gmBurstShots||0)>=burstLimit){
+          const next=nextGMTarget(u);
+          if(next){
+            if(next!==u.target||(u.gmBurstShots||0)>=burstLimit)u.gmBurstShots=0;
+            u.target=target=next;
+          }else target=null;
+        }
+        if(target){
+          const shot=(u.gmBurstShots||0);
+          let spread;
+          if(u.isSecondGM){
+            spread=[-GM_SECOND_BURST_SPREAD,-GM_SECOND_BURST_SPREAD*0.5,0,GM_SECOND_BURST_SPREAD*0.5,GM_SECOND_BURST_SPREAD][shot%GM_SECOND_BURST_SHOTS];
+          }else{
+            spread=shot===0?-GM_BURST_SPREAD:shot===1?0:GM_BURST_SPREAD;
+          }
+          throwAt(u,target.x,target.y,target.vx,target.vy,spread);
+          u.gmBurstShots=shot+1;
+        }else{
+          // All living targets already have a committed throw; briefly wait for one to resolve.
+          u.cd=0.08;
+        }
+      }
     }
     if(u.kind=='mate'&&u.cd<=0){
-      const gm=units[1];
-      if(gm.alive){const i=units.indexOf(u);const a=Math.atan2(gm.y-u.y,gm.x-u.x),off=((i%5)-2)*12+(Math.random()-.5)*260*exh(u);throwAt(u,gm.x-Math.sin(a)*off,gm.y+Math.cos(a)*off,gm.vx*0.5,gm.vy*0.5)} // aim near him; the more tired, the wilder the aim
+      const target=chooseMateTarget(u);
+      if(target){const i=units.indexOf(u);const a=Math.atan2(target.y-u.y,target.x-u.x),off=((i%5)-2)*12+(Math.random()-.5)*260*exh(u);throwAt(u,target.x-Math.sin(a)*off,target.y+Math.cos(a)*off,target.vx*0.5,target.vy*0.5)} // aim near the selected opponent; the more tired, the wilder the aim
     }
   }
   // balls
@@ -248,7 +629,7 @@ function update(dt){
     }
     for(const u of units){
       if(u.alive&&u.team!=b.team&&segDist(b.px,b.py,b.x,b.y,u.x,u.y)<rad(u)+BR){
-        u.hp--;u.flash=.25;b.dead=true;if(u.hp<=0){u.alive=false;if(b.team==1){const gm=units[1];gm.hp=Math.min(GM_MAXHP,gm.hp+1)}}break; // each kill heals the Grandmaster by 1
+        u.hp--;u.flash=.25;b.dead=true;if(u.hp<=0)u.alive=false;break;
       }
     }
   }
@@ -262,7 +643,7 @@ function update(dt){
     pulses.push({x:(a.x+b.x)/2,y:(a.y+b.y)/2,t:0}); // little ring effect where they popped
   }
   balls=balls.filter(b=>!b.dead&&Math.hypot(b.x-CX,b.y-CY)<RO+60);
-  if(!units[1].alive){state='won';wins++;showRec()}
+  if(!team(1).length){state='won';wins++;showRec()}
   else if(!team(0).length){state='lost';losses++;showRec()}
 }
 function playerThrow(){
@@ -278,26 +659,43 @@ function draw(){
   g.clearRect(0,0,W,H);
   g.fillStyle='#161c28';g.beginPath();g.arc(CX,CY,RO,0,7);g.fill();
   g.strokeStyle='#ffffff40';g.lineWidth=2;
-  if(mapKind=='rings'){g.fillStyle='#2a1a20';g.beginPath();g.arc(CX,CY,RI,0,7);g.fill();g.beginPath();g.arc(CX,CY,RI,0,7);g.stroke()}
-  if(mapKind=='split'){g.fillStyle='#2a1a20';g.beginPath();g.arc(CX,CY,RO,-Math.PI/2,Math.PI/2);g.fill();g.beginPath();g.moveTo(CX,CY-RO);g.lineTo(CX,CY+RO);g.stroke()}
-  g.beginPath();g.arc(CX,CY,RO,0,7);g.stroke();
+  if(mapKind=='rings'){
+    g.fillStyle='#2a1a20';g.beginPath();g.arc(CX,CY,RI,0,7);g.fill();
+    g.strokeStyle='#ffffff40';g.beginPath();g.arc(CX,CY,RI,0,7);g.stroke();
+  }
+  if(mapKind=='split'){
+    g.fillStyle='#2a1a20';g.beginPath();g.arc(CX,CY,RO,-Math.PI/2,Math.PI/2);g.fill();
+    g.strokeStyle='#ffffff40';g.beginPath();g.moveTo(CX,CY-RO);g.lineTo(CX,CY+RO);g.stroke();
+  }
+  g.strokeStyle='#ffffff40';g.lineWidth=2;g.beginPath();g.arc(CX,CY,RO,0,7);g.stroke();
+  g.strokeStyle='#ffffff18';g.lineWidth=1;g.beginPath();g.arc(CX,CY,RO-9,0,7);g.stroke();
+  g.fillStyle='#ffffff40';g.beginPath();g.arc(CX,CY,2.5,0,7);g.fill();
   const p=units[0];
   if(p.alive&&state=='play'){g.strokeStyle='#4da3ff55';g.setLineDash([6,8]);g.beginPath();g.moveTo(p.x,p.y);g.lineTo(mouse.x,mouse.y);g.stroke();g.setLineDash([])}
   for(const p of pulses){g.strokeStyle='rgba(255,255,255,'+(0.8*(1-p.t/0.4))+')';g.lineWidth=2;g.beginPath();g.arc(p.x,p.y,6+14*p.t/0.4,0,7);g.stroke()}
   for(const b of balls){
-    if(b.fast){g.strokeStyle='#ff4040';g.lineWidth=3;g.beginPath();g.moveTo(b.x,b.y);g.lineTo(b.x-b.vx*0.03,b.y-b.vy*0.03);g.stroke()}
-    g.fillStyle=b.team==0?'#7cc0ff':'#ff7a6e';g.beginPath();g.arc(b.x,b.y,BR,0,7);g.fill();
+    if(b.spiral){
+      g.strokeStyle='rgba(255,210,77,.9)';g.lineWidth=3;g.lineCap='round';g.beginPath();g.moveTo(b.x-b.vx*0.055,b.y-b.vy*0.055);g.lineTo(b.x,b.y);g.stroke();
+    }else if(b.fast){g.strokeStyle='#ff4040';g.lineWidth=3;g.beginPath();g.moveTo(b.x,b.y);g.lineTo(b.x-b.vx*0.03,b.y-b.vy*0.03);g.stroke()}
+    g.fillStyle=b.spiral?'#ffe28a':b.team==0?'#7cc0ff':'#ff7a6e';g.beginPath();g.arc(b.x,b.y,b.spiral?BR+1:BR,0,7);g.fill();
   }
   for(const u of units){
     if(!u.alive)continue;
-    g.fillStyle=u.flash>0?'#fff':u.kind=='gm'?'#ff4d4d':u.kind=='player'?'#2f7bff':'rgb('+(127-37*(u.tire||0)|0)+','+(168-70*(u.tire||0)|0)+','+(217-103*(u.tire||0)|0)+')'; // tired teammates fade to grey
+    g.fillStyle=u.flash>0?'#fff':u.kind=='gm'?(u.team===0?'#2f7bff':'#ff4d4d'):u.kind=='player'?'#2f7bff':'rgb('+(127-37*(u.tire||0)|0)+','+(168-70*(u.tire||0)|0)+','+(217-103*(u.tire||0)|0)+')'; // Grandmasters use their team's colour
     g.beginPath();g.arc(u.x,u.y,rad(u),0,7);g.fill();
-    if(u.kind=='gm'){g.strokeStyle='#ffd24d';g.lineWidth=3;g.stroke()}
+    if(u.kind=='gm'){
+      g.strokeStyle='#ffd24d';g.lineWidth=3;g.stroke();
+      g.fillStyle='#fff';g.font='bold 9px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('G',u.x,u.y+0.5);g.textBaseline='alphabetic';
+      if(u.spiralActive){
+        g.save();g.strokeStyle='rgba(255,210,77,.9)';g.lineWidth=3;g.setLineDash([7,7]);g.lineDashOffset=-(u.spiralVisualAngle||0)*9;
+        g.beginPath();g.arc(u.x,u.y,28,u.spiralVisualAngle||0,(u.spiralVisualAngle||0)+Math.PI*1.45);g.stroke();g.restore();
+      }
+    }
     {const n=Math.max(MAXHP,u.hp);for(let i=0;i<n;i++){g.fillStyle=i<u.hp?'#6bff9a':'#444';g.fillRect(u.x-n*5.5+i*11,u.y-rad(u)-10,9,4)}}
     if(u.cd>0&&u.kind=='player'){g.fillStyle='#ffffff50';g.fillRect(u.x-15,u.y+R+5,30*(u.cd/COOLDOWN),3)}
   }
   g.fillStyle='#ffffffaa';g.font='13px sans-serif';g.textAlign='left';g.fillText('YOUR TEAM'+energyText(),10,18);
-  g.textAlign='right';g.fillText('GRANDMASTER',W-10,18);
+  g.textAlign='right';g.fillText('OPPOSING TEAM',W-10,18);
   if(state!='play'){
     g.fillStyle='#000a';g.fillRect(0,0,W,H);g.fillStyle='#fff';g.textAlign='center';g.font='bold 34px sans-serif';
     g.fillText(state=='won'?'YOU BEAT THE GRANDMASTER!':'The Grandmaster wins',W/2,H/2);
@@ -312,11 +710,12 @@ addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
 c.addEventListener('mousemove',e=>{const r=c.getBoundingClientRect();mouse.x=(e.clientX-r.left)*W/r.width;mouse.y=(e.clientY-r.top)*H/r.height});
 c.addEventListener('mousedown',playerThrow);
 const add=document.getElementById('add');
-add.onclick=()=>{addUnit();add.textContent='+ Add CPU teammate ('+mates+'/'+MAX_MATES+')';add.disabled=mates>=MAX_MATES};
+add.onclick=()=>addUnit();
 document.getElementById('reset').onclick=reset;
 const rate=document.getElementById('rate');
 rate.oninput=()=>{gmRate=+rate.value;document.getElementById('rv').textContent=gmRate};
 rate.onchange=()=>rate.blur();
 document.getElementById('map').onchange=e=>{mapKind=e.target.value;e.target.blur();reset()};
+document.getElementById('extra-gm').onchange=e=>{extraGMTeam=e.target.value==='none'?null:Number(e.target.value);e.target.blur();reset()};
 reset();showRec();requestAnimationFrame(step);
 </script></body></html>
